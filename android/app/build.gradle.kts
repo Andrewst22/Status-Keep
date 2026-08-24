@@ -46,16 +46,9 @@ android {
 }
 
 dependencies {
-    // otras dependencias
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.2.20")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-}
-
-// Forzar Java 17 en todas las dependencias
-configurations.all {
-    resolutionStrategy {
-        force("org.jetbrains.kotlin:kotlin-stdlib:1.9.0")
-        force("org.jetbrains.kotlin:kotlin-stdlib-common:1.9.0")
-    }
 }
 
 flutter {
