@@ -92,20 +92,23 @@ class DirectoryAccessService {
       // Verificar y solicitar permisos básicos primero
       if (Platform.isAndroid) {
         print('🔐 Verificando permisos básicos...');
-        final storageStatus = await Permission.storage.request();
-        final externalStorageStatus = await Permission.manageExternalStorage.request();
-        
+        final storageStatus = await Permission.storage.status;
+        final externalStorageStatus = await Permission.manageExternalStorage.status;
+
         print('📊 Estado de permisos:');
         print('   - Storage: ${storageStatus.name}');
         print('   - ManageExternalStorage: ${externalStorageStatus.name}');
-        
-        if (!externalStorageStatus.isGranted) {
-          print('❌ Permiso MANAGE_EXTERNAL_STORAGE denegado');
-          print('🔧 Abriendo configuración de la app...');
-          await openAppSettings();
-          return false;
-        } else {
-          print('✅ Permiso MANAGE_EXTERNAL_STORAGE concedido');
+
+        if (!storageStatus.isGranted && !externalStorageStatus.isGranted) {
+          final requestedStorage = await Permission.storage.request();
+          final requestedManage = await Permission.manageExternalStorage.request();
+
+          if (!requestedStorage.isGranted && !requestedManage.isGranted) {
+            print('❌ No se concedieron permisos de almacenamiento');
+            print('🔧 Abriendo configuración de la app...');
+            await openAppSettings();
+            return false;
+          }
         }
       }
       

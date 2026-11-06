@@ -12,61 +12,77 @@ class DownloadService {
 
   String? _statusSaverPath;
 
-  /// Obtener la ruta de la carpeta StatusSaver
+  /// Obtener la ruta de la carpeta principal de la app
   String getStatusSaverPath() {
-    return _statusSaverPath ?? '/storage/emulated/0/Download/StatusSaver';
+    return _statusSaverPath ?? '/storage/emulated/0/StatusKeep';
+  }
+
+  Future<bool> _ensureDownloadPermission() async {
+    if (!Platform.isAndroid) return true;
+
+    final storageStatus = await Permission.storage.status;
+    if (storageStatus.isGranted) return true;
+
+    final manageStatus = await Permission.manageExternalStorage.status;
+    if (manageStatus.isGranted) return true;
+
+    final requestedStorage = await Permission.storage.request();
+    if (requestedStorage.isGranted) return true;
+
+    final requestedManage = await Permission.manageExternalStorage.request();
+    if (requestedManage.isGranted) return true;
+
+    return false;
   }
 
   /// Crear la estructura de carpetas para WhatsApp
-  Future<void> _createStatusSaverStructure() async {
+  Future<void> _createStatusSaverStructure({bool usePublicStorage = true}) async {
     try {
-      // Intentar crear en Downloads primero
-      final downloadsPath = '/storage/emulated/0/Download/StatusSaver/WhatsApp';
-      final downloadsDir = Directory(downloadsPath);
-      
-      if (!await downloadsDir.exists()) {
-        await downloadsDir.create(recursive: true);
-        print('✅ Carpeta creada: $downloadsPath');
-      }
-      
-      _statusSaverPath = '/storage/emulated/0/Download/StatusSaver';
-      
-    } catch (e) {
-      print('❌ Error al crear carpeta en Downloads: $e');
-      
-      // Fallback: usar el directorio de documentos de la app
-      try {
-        final appDir = await getApplicationDocumentsDirectory();
-        final fallbackPath = '${appDir.path}/StatusSaver/WhatsApp';
-        final fallbackDir = Directory(fallbackPath);
-        
-        if (!await fallbackDir.exists()) {
-          await fallbackDir.create(recursive: true);
-          print('✅ Carpeta creada (fallback): $fallbackPath');
+      if (usePublicStorage) {
+        final rootPath = '/storage/emulated/0/StatusKeep';
+        final whatsappPath = '$rootPath/WhatsApp';
+        final rootDir = Directory(rootPath);
+        final whatsappDir = Directory(whatsappPath);
+
+        if (!await rootDir.exists()) {
+          await rootDir.create(recursive: true);
+          print('✅ Carpeta creada: $rootPath');
         }
-        
-        _statusSaverPath = '${appDir.path}/StatusSaver';
-      } catch (fallbackError) {
-        print('❌ Error al crear carpeta fallback: $fallbackError');
-        throw Exception('No se pudo crear la carpeta de descargas');
+
+        if (!await whatsappDir.exists()) {
+          await whatsappDir.create(recursive: true);
+          print('✅ Carpeta creada: $whatsappPath');
+        }
+
+        _statusSaverPath = rootPath;
+        return;
       }
+    } catch (e) {
+      print('❌ Error al crear carpeta en raíz: $e');
+    }
+
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final fallbackPath = '${appDir.path}/StatusKeep/WhatsApp';
+      final fallbackDir = Directory(fallbackPath);
+
+      if (!await fallbackDir.exists()) {
+        await fallbackDir.create(recursive: true);
+        print('✅ Carpeta creada (fallback): $fallbackPath');
+      }
+
+      _statusSaverPath = '${appDir.path}/StatusKeep';
+    } catch (fallbackError) {
+      print('❌ Error al crear carpeta fallback: $fallbackError');
+      throw Exception('No se pudo crear la carpeta de descargas');
     }
   }
 
   /// Descargar un estado de WhatsApp
   Future<String?> downloadStatus(SocialStatus status) async {
     try {
-      // Verificar permisos
-      final permissionStatus = await Permission.storage.status;
-      if (!permissionStatus.isGranted) {
-        final requestStatus = await Permission.storage.request();
-        if (!requestStatus.isGranted) {
-          throw Exception('Permisos de almacenamiento denegados');
-        }
-      }
-
-      // Crear estructura de carpetas
-      await _createStatusSaverStructure();
+      final canUsePublicStorage = await _ensureDownloadPermission();
+      await _createStatusSaverStructure(usePublicStorage: canUsePublicStorage);
 
       // Obtener la ruta de destino
       final destinationPath = await _getDestinationPath(status);
